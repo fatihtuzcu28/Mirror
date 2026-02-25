@@ -10,7 +10,7 @@ Tamamen **HTML + Canvas + TailwindCSS** ile geliştirilmiştir.
 
 ## 🚀 Özellikler
 
-* 🪞 **3 Ayna Türü**
+* 🔍 **3 Ayna Türü**
 
   * Düzlem Ayna
   * Çukur Ayna
