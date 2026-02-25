@@ -5,7 +5,7 @@ Düzlem, çukur ve tümsek aynalarda görüntü oluşumunu gerçek zamanlı olar
 
 Tamamen **HTML + Canvas + TailwindCSS** ile geliştirilmiştir.
 
----
+![Optik Masa](screenshot.png)
 
 ## 🚀 Özellikler
 
