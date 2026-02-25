@@ -4,6 +4,7 @@ Modern ve etkileşimli bir **Optik Laboratuvar Simülasyonu**.
 Düzlem, çukur ve tümsek aynalarda görüntü oluşumunu gerçek zamanlı olarak gözlemleyebileceğiniz gelişmiş bir fizik uygulaması.
 
 Tamamen **HTML + Canvas + TailwindCSS** ile geliştirilmiştir.
+## 🖥️ Ekran Görüntüsü
 
 ![Optik Masa](screenshot.png)
 
@@ -48,15 +49,9 @@ Tamamen **HTML + Canvas + TailwindCSS** ile geliştirilmiştir.
 
 ---
 
-## 🖥️ Ekran Görüntüsü
 
-> (Buraya proje ekran görüntüsü ekleyebilirsin)
 
-```md
-![Optik Masa](screenshot.png)
-```
 
----
 
 ## 🧠 Desteklenen Fizik Senaryoları
 
