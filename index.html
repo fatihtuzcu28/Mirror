@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gerçekçi Optik Masa Simülasyonu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            touch-action: none;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        canvas {
+            cursor: crosshair;
+            display: block;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        input[type="range"] {
+            accent-color: #38bdf8;
+        }
+        .mirror-toggle {
+            display: flex;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 4px;
+            border-radius: 12px;
+            gap: 4px;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <!-- Kontrol Paneli -->
+    <div id="mainPanel" class="absolute top-6 left-6 z-10 transition-transform duration-300 ease-in-out">
+        <div class="glass-panel p-6 rounded-2xl w-80 relative">
+            <!-- Panel Gizle/Göster Butonu -->
+            <button id="togglePanelBtn" class="absolute -right-12 top-0 w-10 h-10 glass-panel rounded-xl flex items-center justify-center text-slate-300 hover:text-white transition-colors" title="Paneli Gizle/Göster">
+                <svg id="togglePanelIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+
+            <h1 class="text-xl font-bold mb-1 text-sky-400">Optik Masa v2.5</h1>
+            <p class="text-[10px] text-slate-400 uppercase tracking-widest mb-4 font-semibold">Laboratuvar Simülasyonu</p>
+            
+            <div class="space-y-5">
+                <!-- Ayna Tipi Seçici -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ayna Tipi</label>
+                        <!-- Uzaklık Göster/Gizle Butonu -->
+                        <button id="toggleDistanceBtn" class="text-slate-400 hover:text-sky-400 transition-colors" title="Uzaklıkları Göster/Gizle">
+                            <svg id="distanceEyeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="mirror-toggle">
+                        <button id="planeBtn" class="toggle-btn active">Düzlem</button>
+                        <button id="concaveBtn" class="toggle-btn">Çukur</button>
+                        <button id="convexBtn" class="toggle-btn">Tümsek</button>
+                    </div>
+                </div>
+
+                <!-- Işın Kontrolü -->
+                <div id="rayControl">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sadece Paralel Işın</label>
+                        <button id="toggleRayBtn" class="w-8 h-4 bg-slate-700 rounded-full relative transition-colors duration-300">
+                            <div id="rayToggleDot" class="w-3 h-3 bg-slate-400 rounded-full absolute left-0.5 top-0.5 transition-transform duration-300"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Odak Kontrolü -->
+                <div id="focalControl">
+                    <div class="flex justify-between mb-2">
+                        <label class="text-xs font-bold text-slate-300 uppercase">Odak Uzaklığı (f)</label>
+                        <span id="fValue" class="text-xs font-mono text-sky-400 font-bold">150cm</span>
+                    </div>
+                    <input type="range" id="focalSlider" min="80" max="250" value="150" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
+                </div>
+
+                <!-- Nesne Boyu -->
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <label class="text-xs font-bold text-slate-300 uppercase">Nesne Boyu (h)</label>
+                        <span id="hValue" class="text-xs font-mono text-sky-400 font-bold">80cm</span>
+                    </div>
+                    <input type="range" id="heightSlider" min="20" max="150" value="80" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
+                </div>
+
+                <!-- Durum Kartı -->
+                <div id="statusBox" class="p-4 rounded-xl border border-slate-700 bg-slate-900/50 transition-all duration-500">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div id="statusDot" class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></div>
+                        <div id="imgStatus" class="text-[10px] font-black uppercase text-sky-400">Analiz Ediliyor</div>
+                    </div>
+                    <p id="description" class="text-xs text-slate-300 leading-relaxed italic">
+                        Kalemi sürükleyerek yansımaları gözlemleyin.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ölçüm Cetveli (Alt) -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 glass-panel px-6 py-2 rounded-full flex gap-8 items-center text-[10px] font-mono text-slate-400">
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span> F: Odak</div>
+        <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-blue-500"></span> C: Merkez</div>
+        <div class="flex items-center gap-2 text-sky-400">Kalemi fare veya dokunmatik ile hareket ettirin.</div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const focalSlider = document.getElementById('focalSlider');
+    const heightSlider = document.getElementById('heightSlider');
+    const fValueDisplay = document.getElementById('fValue');
+    const hValueDisplay = document.getElementById('hValue');
+    const imgStatus = document.getElementById('imgStatus');
+    const description = document.getElementById('description');
+    const statusDot = document.getElementById('statusDot');
+    
+    const concaveBtn = document.getElementById('concaveBtn');
+    const planeBtn = document.getElementById('planeBtn');
+    const convexBtn = document.getElementById('convexBtn');
+    const focalControl = document.getElementById('focalControl');
+
+    let width, height;
+    let focalLength = 150;
+    let mirrorType = 'plane';
+    let object = { x: 400, h: 80 }; 
+    let isDragging = false;
+    let showDistance = true;
+    let isPanelOpen = true;
+    let onlyParallelRay = false;
+    let time = 0;
+
+    function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        canvas.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); onStart(e.touches[0]); }, { passive: false });
+        window.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e.touches[0]); }, { passive: false });
+        window.addEventListener('touchend', onEnd);
+
+        focalSlider.oninput = (e) => {
+            focalLength = parseInt(e.target.value);
+            fValueDisplay.textContent = focalLength + "cm";
+            draw();
+        };
+
+        heightSlider.oninput = (e) => {
+            object.h = parseInt(e.target.value);
+            hValueDisplay.textContent = object.h + "cm";
+            draw();
+        };
+
+        function updateDistanceIcon() {
+            const eyeIcon = document.getElementById('distanceEyeIcon');
+            if (showDistance) {
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />`;
+            } else {
+                eyeIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />`;
+            }
+        }
+
+        function setMirrorType(type) {
+            mirrorType = type;
+            concaveBtn.classList.toggle('active', type === 'concave');
+            planeBtn.classList.toggle('active', type === 'plane');
+            convexBtn.classList.toggle('active', type === 'convex');
+            focalControl.style.display = type === 'plane' ? 'none' : 'block';
+            document.getElementById('rayControl').style.display = type === 'plane' ? 'none' : 'block';
+            
+            // Düzlem aynada uzaklık açık (true), diğerlerinde gizli (false) olsun
+            showDistance = (type === 'plane');
+            updateDistanceIcon();
+            
+            draw();
+        }
+        concaveBtn.onclick = () => setMirrorType('concave');
+        planeBtn.onclick = () => setMirrorType('plane');
+        convexBtn.onclick = () => setMirrorType('convex');
+
+        // Uzaklık ikon işlemleri
+        document.getElementById('toggleDistanceBtn').onclick = () => {
+            showDistance = !showDistance;
+            updateDistanceIcon();
+            draw();
+        };
+
+        // Işın Kontrol İşlemleri
+        const toggleRayBtn = document.getElementById('toggleRayBtn');
+        const rayToggleDot = document.getElementById('rayToggleDot');
+        toggleRayBtn.onclick = () => {
+            onlyParallelRay = !onlyParallelRay;
+            if (onlyParallelRay) {
+                toggleRayBtn.classList.replace('bg-slate-700', 'bg-sky-500');
+                rayToggleDot.classList.replace('bg-slate-400', 'bg-white');
+                rayToggleDot.style.transform = 'translateX(16px)';
+            } else {
+                toggleRayBtn.classList.replace('bg-sky-500', 'bg-slate-700');
+                rayToggleDot.classList.replace('bg-white', 'bg-slate-400');
+                rayToggleDot.style.transform = 'translateX(0)';
+            }
+            draw();
+        };
+
+        // Panel aç/kapa
+        const mainPanel = document.getElementById('mainPanel');
+        const togglePanelBtn = document.getElementById('togglePanelBtn');
+        const togglePanelIcon = document.getElementById('togglePanelIcon');
+        togglePanelBtn.onclick = () => {
+            isPanelOpen = !isPanelOpen;
+            if (isPanelOpen) {
+                mainPanel.style.transform = 'translateX(0)';
+                togglePanelIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />`;
+            } else {
+                mainPanel.style.transform = 'translateX(calc(-100% - 24px))'; // 24px (left-6 paddingi)
+                togglePanelIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />`;
+            }
+        };
+
+        setMirrorType('plane');
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    function renderLoop(t) {
+        time = t / 15;
+        draw();
+        requestAnimationFrame(renderLoop);
+    }
+
+    function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        draw();
+    }
+
+    const getMirrorX = () => width * 0.7;
+    const getAxisY = () => height * 0.55;
+
+    function onStart(e) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const objX = getMirrorX() - object.x;
+        const objY = getAxisY() - object.h;
+        if (Math.sqrt((mouseX - objX)**2 + (mouseY - objY)**2) < 60) isDragging = true;
+    }
+
+    function onMove(e) {
+        if (!isDragging) return;
+        const rect = canvas.getBoundingClientRect();
+        object.x = Math.max(10, getMirrorX() - (e.clientX - rect.left));
+        draw();
+    }
+
+    function onEnd() { isDragging = false; }
+
+    function drawGrid() {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < width; x += 40) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+        }
+        for (let y = 0; y < height; y += 40) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawPencil(x, y, h, label, isImage = false) {
+        ctx.save();
+        if(isImage) {
+            ctx.globalAlpha = 0.5;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'rgba(56, 189, 248, 0.4)';
+        }
+        const dir = h > 0 ? 1 : -1;
+        const absH = Math.abs(h);
+        
+        let w = 14;
+        // Çok küçüldüğünde kalemin kalınlığını da orantılı azalt
+        if (absH < 40) w = Math.max(6, 14 * (absH / 40));
+
+        // Ucun (tahta+grafit) uzunluğunu sabit 25 yerine boyuna göre dinamik yap
+        const tipH = Math.min(25, absH * 0.4);
+        const bodyH = absH - tipH;
+        
+        const grad = ctx.createLinearGradient(x - w/2, 0, x + w/2, 0);
+        grad.addColorStop(0, '#eab308'); grad.addColorStop(0.5, '#facc15'); grad.addColorStop(1, '#ca8a04');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - w/2, y, w, -dir * bodyH);
+
+        const bodyTop = y - dir * bodyH;
+        
+        // Tahta Uç
+        ctx.beginPath(); ctx.fillStyle = '#fef3c7';
+        ctx.moveTo(x - w/2, bodyTop); 
+        ctx.lineTo(x + w/2, bodyTop); 
+        ctx.lineTo(x, bodyTop - dir * tipH);
+        ctx.fill();
+
+        // Siyah Grafit (Uç) => tipH'ın son %28'lik kısmı
+        const graphiteH = tipH * 0.28;
+        const hw = (w / 2) * (graphiteH / tipH);
+        ctx.beginPath(); ctx.fillStyle = '#0f172a';
+        ctx.moveTo(x - hw, bodyTop - dir * (tipH - graphiteH)); 
+        ctx.lineTo(x + hw, bodyTop - dir * (tipH - graphiteH)); 
+        ctx.lineTo(x, bodyTop - dir * tipH);
+        ctx.fill();
+
+        ctx.fillStyle = isImage ? '#7dd3fc' : '#f8fafc';
+        ctx.font = '900 10px Inter'; ctx.textAlign = 'center';
+        ctx.fillText(label, x, y - h - (dir * 20));
+        ctx.restore();
+    }
+
+    function drawMirror(mx, ay, f, type) {
+        ctx.save();
+        if (type === 'plane') {
+            // Düzlem ayna: düz dikey çizgi
+            const mirrorH = height * 0.45;
+            // Arka yüzey (kalın gri)
+            ctx.beginPath();
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#334155';
+            ctx.moveTo(mx, ay - mirrorH / 2);
+            ctx.lineTo(mx, ay + mirrorH / 2);
+            ctx.stroke();
+            // Neon yansıtıcı yüzey
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+            ctx.moveTo(mx - 2, ay - mirrorH / 2);
+            ctx.lineTo(mx - 2, ay + mirrorH / 2);
+            ctx.stroke();
+            // Çizik desen (ayna arkası tarama)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 1;
+            for (let i = -mirrorH / 2; i < mirrorH / 2; i += 12) {
+                ctx.beginPath();
+                ctx.moveTo(mx + 2, ay + i);
+                ctx.lineTo(mx + 14, ay + i + 10);
+                ctx.stroke();
+            }
+        } else {
+            const radius = f * 2;
+            const angle = 0.7;
+            const centerX = type === 'concave' ? mx - radius : mx + radius;
+
+            // Arka yüzey (Mat gri/karanlık kısım) - Her zaman sağda (ayna arkası)
+            ctx.beginPath();
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#334155';
+            if(type === 'concave') {
+                ctx.arc(centerX, ay, radius, 2 * Math.PI - angle, angle);
+            } else {
+                ctx.arc(centerX, ay, radius, Math.PI - angle, Math.PI + angle);
+            }
+            ctx.stroke();
+
+            // Yansıtıcı yüzey (Parlak neon kısım) - Her zaman solda (ışığın geldiği kısım)
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+            // Çizgiyi -3 piksel sola (cisme doğru) kaydırarak ön yüzü belirliyoruz.
+            if(type === 'concave') {
+                ctx.arc(centerX - 3, ay, radius, 2 * Math.PI - angle, angle);
+            } else {
+                ctx.arc(centerX - 3, ay, radius, Math.PI - angle, Math.PI + angle);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawLightBeam(fromX, fromY, toX, toY, color, dash = [], animatedFlow = false) {
+        ctx.save();
+        
+        if (animatedFlow) {
+            ctx.setLineDash([8, 12]);
+            // Çizimin yönüne göre (başlangıçtan bitişe tam olarak akması için) negatif time offset kullanıyoruz
+            ctx.lineDashOffset = -time;   
+        } else {
+            ctx.setLineDash(dash);
+        }
+
+        ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(toX, toY);
+        ctx.strokeStyle = color; 
+        ctx.lineWidth = animatedFlow ? 2 : 1.5;
+        ctx.shadowBlur = (dash.length > 0 && !animatedFlow) ? 0 : 8; 
+        ctx.shadowColor = color;
+        ctx.stroke();
+
+        // Animasyonlu ışınlar için iç tüp/parlak çekirdek efekti
+        if (animatedFlow) {
+            ctx.setLineDash([]);
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.3;
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    function drawDistanceMeasurement(startX, endX, axisY, yOff, prefix) {
+        if (!showDistance) return;
+        ctx.save();
+        const leftX = Math.min(startX, endX);
+        const rightX = Math.max(startX, endX);
+        const dist = Math.abs(endX - startX);
+        if (dist < 10) { ctx.restore(); return; }
+
+        const my = axisY + yOff;
+        const tickH = 8;
+        const arrowSize = 6;
+
+        // Ana çizgi
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(leftX + arrowSize, my);
+        ctx.lineTo(rightX - arrowSize, my);
+        ctx.stroke();
+
+        // Sol ok başı
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+        ctx.beginPath();
+        ctx.moveTo(leftX, my);
+        ctx.lineTo(leftX + arrowSize, my - arrowSize / 2);
+        ctx.lineTo(leftX + arrowSize, my + arrowSize / 2);
+        ctx.fill();
+
+        // Sağ ok başı
+        ctx.beginPath();
+        ctx.moveTo(rightX, my);
+        ctx.lineTo(rightX - arrowSize, my - arrowSize / 2);
+        ctx.lineTo(rightX - arrowSize, my + arrowSize / 2);
+        ctx.fill();
+
+        // Dikey uçlar (tick)
+        ctx.beginPath();
+        ctx.moveTo(leftX, my - tickH); ctx.lineTo(leftX, my + tickH);
+        ctx.moveTo(rightX, my - tickH); ctx.lineTo(rightX, my + tickH);
+        ctx.stroke();
+
+        // Referans çizgileri (noktalı/kesikli)
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(startX, axisY + 2); ctx.lineTo(startX, my - tickH);
+        ctx.moveTo(endX, axisY + 2); ctx.lineTo(endX, my - tickH);
+        ctx.stroke();
+
+        // Mesafe yazısı
+        const midX = (leftX + rightX) / 2;
+        const distText = prefix + ' ' + Math.round(dist) + ' cm';
+        ctx.font = '700 11px Inter, system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const tw = ctx.measureText(distText).width + 12;
+        
+        // Kutucuk
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.fillRect(midX - tw / 2, my - 8, tw, 16);
+        // Yazı
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(distText, midX, my - 6);
+
+        ctx.restore();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+        drawGrid();
+        
+        const mx = getMirrorX();
+        const ay = getAxisY();
+        const f = focalLength;
+        const do_v = object.x;
+        const ho_v = object.h;
+
+        // Optik Eksen
+        ctx.beginPath(); ctx.moveTo(0, ay); ctx.lineTo(width, ay);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)'; ctx.stroke();
+
+        // Ayna
+        drawMirror(mx, ay, f, mirrorType);
+
+        // Nesne
+        const ox = mx - do_v;
+        if (!(onlyParallelRay && mirrorType !== 'plane')) {
+            drawPencil(ox, ay, ho_v, 'NESNE');
+        }
+
+        if (mirrorType === 'plane') {
+            // ─── DÜZLEM AYNA ───
+            const ix_plane = mx + do_v;
+            const hi_plane = ho_v;
+
+            // -- ÜST NOKTA İÇİN IŞINLAR (Turuncu) --
+            // 1. Yatay ışın: aynaya dik gider, kendi üzerinden yansır
+            drawLightBeam(ox, ay - ho_v, mx, ay - ho_v, '#fb923c', [], true);
+            // Yatay yansıma cismi delip geçmesin (kendi üzerinden geri dönüyor olarak kabul ediliyor)
+            drawLightBeam(mx, ay - ho_v, ix_plane, ay - ho_v, 'rgba(251, 146, 60, 0.4)', [5,5]); // sanal uzantı
+
+            // 2. Eğik ışın: aynanın üst kısmına çarpar
+            const topHitY = ay - ho_v - 45;
+            drawLightBeam(ox, ay - ho_v, mx, topHitY, '#fb923c', [], true);
+            // Yansıma açısı hesabı
+            const topSlope = (topHitY - (ay - ho_v)) / (mx - ox);
+            const refTopSlope = -topSlope;
+            const refTopYAt0 = topHitY + refTopSlope * (-mx);
+            drawLightBeam(mx, topHitY, 0, refTopYAt0, '#fb923c', [], true); // yansıyan
+            drawLightBeam(mx, topHitY, ix_plane, ay - ho_v, 'rgba(251, 146, 60, 0.4)', [5,5]); // sanal uzantı
+
+            // Üst yansıma noktasına NORMAL (kesikli yatay çizgi)
+            drawLightBeam(mx - 40, topHitY, mx + 40, topHitY, 'rgba(255, 255, 255, 0.3)', [2,4]);
+
+            // -- ALT NOKTA İÇİN IŞINLAR (Mavi) --
+            // 3. Yatay ışın (Asal eksen üzerinden)
+            drawLightBeam(ox, ay, mx, ay, '#38bdf8', [], true);
+            // Yatay yansıma cismi delip geçmesin
+            drawLightBeam(mx, ay, ix_plane, ay, 'rgba(56, 189, 248, 0.4)', [5,5]); // sanal uzantı
+
+            // 4. Eğik ışın: aynanın alt kısmına çarpar
+            const botHitY = ay + 45;
+            drawLightBeam(ox, ay, mx, botHitY, '#38bdf8', [], true);
+            // Yansıma açısı hesabı
+            const botSlope = (botHitY - ay) / (mx - ox);
+            const refBotSlope = -botSlope;
+            const refBotYAt0 = botHitY + refBotSlope * (-mx);
+            drawLightBeam(mx, botHitY, 0, refBotYAt0, '#38bdf8', [], true); // yansıyan
+            drawLightBeam(mx, botHitY, ix_plane, ay, 'rgba(56, 189, 248, 0.4)', [5,5]); // sanal uzantı
+
+            // Alt yansıma noktasına NORMAL (kesikli yatay çizgi)
+            drawLightBeam(mx - 40, botHitY, mx + 40, botHitY, 'rgba(255, 255, 255, 0.3)', [2,4]);
+
+            // Görüntü
+            drawPencil(ix_plane, ay, hi_plane, 'SANAL GÖRÜNTÜ', true);
+
+            // Mesafe ölçüleri
+            drawDistanceMeasurement(ox, mx, ay, 35, 'dc =');
+            drawDistanceMeasurement(mx, ix_plane, ay, 55, 'dg =');
+
+            updateStatus(do_v, f, true, 'plane');
+
+        } else {
+            // ─── KÜRESEL AYNALAR (çukur/tümsek) ───
+            // Odak ve Merkez Noktaları
+            const fx = mirrorType === 'concave' ? mx - f : mx + f;
+            const cx = mirrorType === 'concave' ? mx - 2*f : mx + 2*f;
+            ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(fx, ay, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(cx, ay, 4, 0, Math.PI * 2); ctx.fill();
+
+            // Optik Hesaplama (1/f = 1/do + 1/di)
+            const effectiveF = mirrorType === 'concave' ? f : -f;
+            const di_v = (effectiveF * do_v) / (do_v - effectiveF);
+            const hi_v = - (di_v / do_v) * ho_v;
+            const ix = mx - di_v;
+
+            if (Math.abs(do_v - effectiveF) > 5) {
+                const R = 2 * f;
+                const vertexX = mx - 3; // Yansıtıcı yüzey eksen kesişim noktası
+                const rays = (onlyParallelRay && mirrorType !== 'plane') ? [ho_v, -ho_v] : [ho_v];
+
+                rays.forEach(current_ho => {
+                    // Ayna üzerindeki gerçek çarpma noktaları X (küresellik taşmasını önlemek için)
+                    let hitX = mx - 3; // Varsayılan değer (tepe noktası hizası)
+                    if (mirrorType === 'concave') {
+                        hitX = (mx - R - 3) + Math.sqrt(R * R - current_ho * current_ho);
+                    } else if (mirrorType === 'convex') {
+                        hitX = (mx + R - 3) - Math.sqrt(R * R - current_ho * current_ho);
+                    }
+                    const current_hi = - (di_v / do_v) * current_ho;
+                    
+                    const rayColor = current_ho > 0 ? '#fb923c' : '#38bdf8'; // Üst turuncu, alt mavi
+                    const dashColor = current_ho > 0 ? 'rgba(251, 146, 60, 0.4)' : 'rgba(56, 189, 248, 0.4)';
+                    const isAnim = true; // Her zaman animasyonlu
+
+                    // Paralel Işın -> Odaktan/Görüntüden geçer
+                    drawLightBeam(ox, ay - current_ho, hitX, ay - current_ho, rayColor, [], isAnim);
+                    
+                    if (mirrorType === 'concave') {
+                        if (di_v > 0) {
+                            drawLightBeam(hitX, ay - current_ho, ix, ay - current_hi, rayColor, [], isAnim);
+                        } else {
+                            const refSlope1 = (ay - current_ho - (ay - current_hi)) / (hitX - ix);
+                            const leftY1 = (ay - current_ho) + refSlope1 * (0 - hitX);
+                            drawLightBeam(hitX, ay - current_ho, 0, leftY1, rayColor, [], isAnim);
+                            drawLightBeam(hitX, ay - current_ho, ix, ay - current_hi, dashColor, [5,5]); // Sanal uzantılar animasyonsuz
+                        }
+                    } else {
+                        const refSlope1 = (ay - current_ho - (ay - current_hi)) / (hitX - ix);
+                        const leftY_cvx = (ay - current_ho) + refSlope1 * (0 - hitX);
+                        drawLightBeam(hitX, ay - current_ho, 0, leftY_cvx, rayColor, [], isAnim);
+                        drawLightBeam(hitX, ay - current_ho, ix, ay - current_hi, dashColor, [5,5]); // Sanal uzantılar animasyonsuz
+                    }
+                });
+
+                // 2. Tepe Işını -> Eksen üzerinde yansır (İsteğe Bağlı)
+                if (!onlyParallelRay) {
+                    drawLightBeam(ox, ay - ho_v, vertexX, ay, '#38bdf8', [], true);
+                    if (di_v > 0) {
+                        drawLightBeam(vertexX, ay, ix, ay - hi_v, '#38bdf8', [], true);
+                    } else {
+                        const refSlope2 = (ay - (ay - hi_v)) / (vertexX - ix);
+                        const leftY2 = ay + refSlope2 * (0 - vertexX);
+                        drawLightBeam(vertexX, ay, 0, leftY2, '#38bdf8', [], true);
+                        drawLightBeam(vertexX, ay, ix, ay - hi_v, 'rgba(56, 189, 248, 0.3)', [5,5]);
+                    }
+                }
+
+                // Görüntü
+                if (!(onlyParallelRay && mirrorType !== 'plane')) {
+                    drawPencil(ix, ay, hi_v, di_v < 0 ? 'SANAL GÖRÜNTÜ' : 'GERÇEK GÖRÜNTÜ', true);
+                }
+
+                // Mesafe ölçüleri
+                drawDistanceMeasurement(ox, vertexX, ay, 35, 'dc =');
+                drawDistanceMeasurement(vertexX, ix, ay, 55, 'dg =');
+
+                updateStatus(do_v, f, di_v < 0, mirrorType);
+            } else {
+                imgStatus.textContent = "GÖRÜNTÜ SONSUZDA";
+                description.textContent = "Işınlar paralel yansıyor, görüntü oluşmaz.";
+            }
+        }
+    }
+
+    function updateStatus(do_v, f, isVirtual, type) {
+        statusDot.className = "w-2 h-2 rounded-full " + (isVirtual ? "bg-amber-400" : "bg-sky-400");
+        imgStatus.className = "text-[10px] font-black uppercase " + (isVirtual ? "text-amber-400" : "text-sky-400");
+        
+        if (type === 'plane') {
+            imgStatus.textContent = "DÜZLEM AYNA ANALİZİ";
+            description.textContent = "Düzlem aynada görüntü her zaman sanal, düz ve nesneyle aynı büyüklüktedir. Aynaya olan uzaklık, nesnenin uzaklığına eşittir.";
+        } else if (type === 'convex') {
+            imgStatus.textContent = "TÜMSEK AYNA ANALİZİ";
+            description.textContent = "Tümsek aynada görüntü her zaman sanal, düz ve nesneden küçüktür. Nesne yaklaştıkça görüntü büyüyerek aynaya yaklaşır.";
+        } else {
+            imgStatus.textContent = "ÇUKUR AYNA ANALİZİ";
+            if (isVirtual) description.textContent = "Nesne odakta içte. Ayna arkasında düz, devasa sanal görüntü.";
+            else if (do_v > 2*f) description.textContent = "Merkez dışı: Görüntü ters, küçük ve gerçek.";
+            else if (Math.abs(do_v - 2*f) < 5) description.textContent = "Merkezde: Görüntü ters, eşit ve gerçek.";
+            else description.textContent = "Odak-Merkez arası: Görüntü ters, büyük ve gerçek.";
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
