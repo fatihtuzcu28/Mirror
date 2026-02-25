@@ -101,7 +101,7 @@ Tamamen **HTML + Canvas + TailwindCSS** ile geliştirilmiştir.
 Projeyi çalıştırmak için:
 
 ```bash
-git clone https://github.com/kullaniciadi/optik-masa.git
+git clone https://github.com/fatihtuzcu28/Mirror.git
 cd optik-masa
 ```
 
